@@ -1,2 +1,7 @@
 # ACPMiniProject
 ACP miniproject
+Problem Statement: Write a menu driven program for a 2d graphics editor in C using * and _. 
+Write functions to draw objects: circle, rectangle, line, and triangle. 
+You should be able to add objects to the picture, delete objects from the picture. 
+Use a 2d array of characters to store the picture. 
+Write a function to display the picture
