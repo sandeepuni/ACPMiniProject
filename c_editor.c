@@ -3,7 +3,7 @@
 #include <string.h>
 
 #define WIDTH 60
-#define HEIGHT 20 
+#define HEIGHT 20
 #define MAX_SHAPES 100
 
 typedef enum
@@ -143,7 +143,6 @@ void draw_pixel(int x, int y)
     }
 }
 
-
 void draw_line(int x1, int y1, int x2, int y2)
 {
     int dx = abs(x2 - x1);
@@ -173,7 +172,7 @@ void draw_line(int x1, int y1, int x2, int y2)
     }
 }
 
-// Rectangle Drawing 
+// Rectangle Drawing
 void draw_rectangle(int x1, int y1, int x2, int y2)
 {
     int min_x = (x1 < x2) ? x1 : x2;
@@ -194,3 +193,176 @@ void draw_rectangle(int x1, int y1, int x2, int y2)
         draw_pixel(max_x, y);
     }
 }
+// Midpoint/Bresenham Circle Drawing Algorithm
+void draw_circle(int cx, int cy, int r)
+{
+    if (r < 0)
+        return;
+    if (r == 0)
+    {
+        draw_pixel(cx, cy);
+        return;
+    }
+
+    int x = 0;
+    int y = r;
+    int d = 3 - 2 * r;
+
+    while (y >= x)
+    {
+        // Draw the octants
+        draw_pixel(cx + x, cy + y);
+        draw_pixel(cx - x, cy + y);
+        draw_pixel(cx + x, cy - y);
+        draw_pixel(cx - x, cy - y);
+        draw_pixel(cx + y, cy + x);
+        draw_pixel(cx - y, cy + x);
+        draw_pixel(cx + y, cy - x);
+        draw_pixel(cx - y, cy - x);
+
+        if (d < 0)
+        {
+            d = d + 4 * x + 6;
+        }
+        else
+        {
+            d = d + 4 * (x - y) + 10;
+            y--;
+        }
+        x++;
+    }
+}
+
+// Drawing TRIANGLE
+void draw_triangle(int x1, int y1, int x2, int y2, int x3, int y3)
+{
+    draw_line(x1, y1, x2, y2);
+    draw_line(x2, y2, x3, y3);
+    draw_line(x3, y3, x1, y1);
+}
+
+// Clearing the canvas and redrawing all the shapes
+void redraw_canvas(void)
+{
+    init_canvas();
+    for (int i = 0; i < MAX_SHAPES; i++)
+    {
+        if (shapes[i].active)
+        {
+            switch (shapes[i].type)
+            {
+            case SHAPE_LINE:
+                draw_line(shapes[i].data.line.x1, shapes[i].data.line.y1, shapes[i].data.line.x2, shapes[i].data.line.y2);
+                break;
+            case SHAPE_RECTANGLE:
+                draw_rectangle(shapes[i].data.rect.x1, shapes[i].data.rect.y1, shapes[i].data.rect.x2, shapes[i].data.rect.y2);
+                break;
+            case SHAPE_CIRCLE:
+                draw_circle(shapes[i].data.circle.cx, shapes[i].data.circle.cy, shapes[i].data.circle.r);
+                break;
+            case SHAPE_TRIANGLE:
+                draw_triangle(shapes[i].data.triangle.x1, shapes[i].data.triangle.y1, shapes[i].data.triangle.x2, shapes[i].data.triangle.y2, shapes[i].data.triangle.x3, shapes[i].data.triangle.y3);
+                break;
+            }
+        }
+    }
+}
+
+// Add a shape
+int add_shape(Shape shape)
+{
+    for (int i = 0; i < MAX_SHAPES; i++)
+    {
+        if (!shapes[i].active)
+        {
+            shapes[i] = shape;
+            shapes[i].active = 1;
+            shapes[i].id = next_id++;
+            redraw_canvas();
+            return shapes[i].id;
+        }
+    }
+    return -1; // Registry full}
+
+    // Delete a shape from the registry by ID
+    int delete_shape(int id)
+    {
+        for (int i = 0; i < MAX_SHAPES; i++)
+        {
+            if (shapes[i].active && shapes[i].id == id)
+            {
+                shapes[i].active = 0;
+                redraw_canvas();
+                return 1; // Success}}return 0; // Not found}
+
+                // List all the current active shapes
+                void list_shapes(void)
+                {
+                    int count = 0;
+                    printf("\n=== Active Shapes ===\n");
+                    for (int i = 0; i < MAX_SHAPES; i++)
+                    {
+                        if (shapes[i].active)
+                        {
+                            count++;
+                            printf("ID %d: ", shapes[i].id);
+                            switch (shapes[i].type)
+                            {
+                            case SHAPE_LINE:
+                                printf("Line from (%d, %d) to (%d, %d)\n", shapes[i].data.line.x1, shapes[i].data.line.y1, shapes[i].data.line.x2, shapes[i].data.line.y2);
+                                break;
+                            case SHAPE_RECTANGLE:
+                                printf("Rectangle corners (%d, %d) and (%d, %d)\n", shapes[i].data.rect.x1, shapes[i].data.rect.y1, shapes[i].data.rect.x2, shapes[i].data.rect.y2);
+                                break;
+                            case SHAPE_CIRCLE:
+                                printf("Circle center (%d, %d) with radius %d\n", shapes[i].data.circle.cx, shapes[i].data.circle.cy, shapes[i].data.circle.r);
+                                break;
+                            case SHAPE_TRIANGLE:
+                                printf("Triangle vertices (%d, %d), (%d, %d), (%d, %d)\n", shapes[i].data.triangle.x1, shapes[i].data.triangle.y1, shapes[i].data.triangle.x2, shapes[i].data.triangle.y2, shapes[i].data.triangle.x3, shapes[i].data.triangle.y3);
+                                break;
+                            }
+                        }
+                    }
+                    if (count == 0)
+                    {
+                        printf("(No active shapes on canvas)\n");
+                    }
+                    printf("=====================\n\n");
+                }
+
+                int get_safe_int(const char *prompt, int min_val, int max_val)
+                {
+                    int val;
+                    char buffer[100];
+                    while (1)
+                    {
+                        printf("%s", prompt);
+                        if (fgets(buffer, sizeof(buffer), stdin) == NULL)
+                        {
+                            printf("Error reading input. Please try again.\n");
+                            continue;
+                        }
+
+                        buffer[strcspn(buffer, "\n")] = '\0';
+
+                        // Parse integer
+                        char *endptr;
+                        long parsed = strtol(buffer, &endptr, 10);
+
+                        if (endptr == buffer || *endptr != '\0')
+                        {
+                            printf("Invalid integer format. Please enter a valid number.\n");
+                            continue;
+                        }
+
+                        if (parsed < min_val || parsed > max_val)
+                        {
+                            printf("Value out of range [%d, %d]. Please try again.\n", min_val, max_val);
+                            continue;
+                        }
+
+                        val = (int)parsed;
+                        break;
+                    }
+                    return val;
+                }
