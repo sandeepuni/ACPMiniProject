@@ -1,0 +1,512 @@
+Problem Statement: Write a menu driven program for a 2d graphics editor in C using * and  _.
+
+    Write functions to draw objects: circle, rectangle, line, and triangle.
+    You should be able to
+          add objects to the picture,
+          delete objects from the picture.
+    Use a 2d array of characters to store the picture.
+    Write a function to display the picture.
+9:32 AM, 6/5/2026
+
+
+I have created the implementation plan for the 2D graphics editor in C: 
+implementation_plan.md
+.
+
+Since there is currently no active workspace, I plan to create this project inside a new subdirectory: /Users/sandeepunni/.gemini/antigravity/scratch/c_graphics_editor. I recommend that you set this subdirectory as your active workspace once it is created.
+
+Please review the plan and let me know if you approve or if you have any feedback or modifications!
+
+Implementation Plan
+9:32 AM, 6/5/2026
+
+
+
+Proceeded with
+Implementation Plan
+I have successfully implemented and verified the 2D C graphics editor.
+
+Summary of Completed Work
+Structures & Setup: Created the project directory at /Users/sandeepunni/.gemini/antigravity/scratch/c_graphics_editor/ and added a 
+Makefile
+. I highly recommend setting this directory as your active workspace.
+Source Code: Wrote 
+editor.c
+ containing:
+Coordinate system boundaries and shapes structures (
+Shape
+).
+Bresenham's algorithms for drawing lines (
+draw_line
+) and circles (
+draw_circle
+).
+Rectangle and triangle drawing routines (
+draw_rectangle
+ and 
+draw_triangle
+).
+Object registry adding/deleting operations and canvas redrawing logic (
+add_shape
+, 
+delete_shape
+, and 
+redraw_canvas
+).
+Safe terminal parsing to avoid infinite input loops.
+Verification: Built and verified the editor using piped commands, outputting results to 
+validation_output.txt
+.
+Artifacts: Created the 
+task.md
+ and 
+walkthrough.md
+ documents.
+Please check the 
+walkthrough.md
+ for renders of the shapes drawn and deleted during verification. You can navigate to /Users/sandeepunni/.gemini/antigravity/scratch/c_graphics_editor and run ./editor in your terminal to try it out yourself!
+
+Code: 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#define WIDTH 60
+#define HEIGHT 20
+#define MAX_SHAPES 100
+// Define shape types
+typedef enum {
+    SHAPE_LINE,
+    SHAPE_RECTANGLE,
+    SHAPE_CIRCLE,
+    SHAPE_TRIANGLE
+} ShapeType;
+// Define structures for shape parameters
+typedef struct {
+    int x1, y1;
+    int x2, y2;
+} LineParams;
+typedef struct {
+    int x1, y1;
+    int x2, y2;
+} RectParams;
+typedef struct {
+    int cx, cy;
+    int r;
+} CircleParams;
+typedef struct {
+    int x1, y1;
+    int x2, y2;
+    int x3, y3;
+} TriangleParams;
+// Unified Shape structure
+typedef struct {
+    int id;
+    int active;
+    ShapeType type;
+    union {
+        LineParams line;
+        RectParams rect;
+        CircleParams circle;
+        TriangleParams triangle;
+    } data;
+} Shape;
+// Global variables for canvas and shapes registry
+char canvas[HEIGHT][WIDTH];
+Shape shapes[MAX_SHAPES];
+int next_id = 1;
+// Function prototypes
+void init_canvas(void);
+void display_canvas(void);
+void draw_pixel(int x, int y);
+void draw_line(int x1, int y1, int x2, int y2);
+void draw_rectangle(int x1, int y1, int x2, int y2);
+void draw_circle(int cx, int cy, int r);
+void draw_triangle(int x1, int y1, int x2, int y2, int x3, int y3);
+void redraw_canvas(void);
+int add_shape(Shape shape);
+int delete_shape(int id);
+void list_shapes(void);
+int get_safe_int(const char *prompt, int min_val, int max_val);
+void show_menu(void);
+void handle_add_shape(void);
+void handle_delete_shape(void);
+// Initialize canvas with background '_'
+void init_canvas(void) {
+    for (int y = 0; y < HEIGHT; y++) {
+        for (int x = 0; x < WIDTH; x++) {
+            canvas[y][x] = '_';
+        }
+    }
+}
+// Display the current canvas with row and column labels
+void display_canvas(void) {
+    printf("\n");
+    // Column header: tens digit
+    printf("    ");
+    for (int x = 0; x < WIDTH; x++) {
+        if (x % 10 == 0) {
+            printf("%d", x / 10);
+        } else {
+            printf(" ");
+        }
+    }
+    printf("\n");
+    // Column header: units digit
+    printf("    ");
+    for (int x = 0; x < WIDTH; x++) {
+        printf("%d", x % 10);
+    }
+    printf("\n");
+    // Top border
+    printf("   +");
+    for (int x = 0; x < WIDTH; x++) {
+        printf("-");
+    }
+    printf("+\n");
+    // Grid rows with row index labels
+    for (int y = 0; y < HEIGHT; y++) {
+        printf("%2d |", y);
+        for (int x = 0; x < WIDTH; x++) {
+            putchar(canvas[y][x]);
+        }
+        printf("|\n");
+    }
+    // Bottom border
+    printf("   +");
+    for (int x = 0; x < WIDTH; x++) {
+        printf("-");
+    }
+    printf("+\n\n");
+}
+// Safe pixel write with bounds checking
+void draw_pixel(int x, int y) {
+    if (x >= 0 && x < WIDTH && y >= 0 && y < HEIGHT) {
+        canvas[y][x] = '*';
+    }
+}
+// Bresenham's Line Algorithm
+void draw_line(int x1, int y1, int x2, int y2) {
+    int dx = abs(x2 - x1);
+    int dy = abs(y2 - y1);
+    int sx = (x1 < x2) ? 1 : -1;
+    int sy = (y1 < y2) ? 1 : -1;
+    int err = dx - dy;
+    while (1) {
+        draw_pixel(x1, y1);
+        if (x1 == x2 && y1 == y2) {
+            break;
+        }
+        int e2 = 2 * err;
+        if (e2 > -dy) {
+            err -= dy;
+            x1 += sx;
+        }
+        if (e2 < dx) {
+            err += dx;
+            y1 += sy;
+        }
+    }
+}
+// Rectangle Drawing (Borders only)
+void draw_rectangle(int x1, int y1, int x2, int y2) {
+    int min_x = (x1 < x2) ? x1 : x2;
+    int max_x = (x1 > x2) ? x1 : x2;
+    int min_y = (y1 < y2) ? y1 : y2;
+    int max_y = (y1 > y2) ? y1 : y2;
+    // Draw horizontal borders
+    for (int x = min_x; x <= max_x; x++) {
+        draw_pixel(x, min_y);
+        draw_pixel(x, max_y);
+    }
+    // Draw vertical borders
+    for (int y = min_y; y <= max_y; y++) {
+        draw_pixel(min_x, y);
+        draw_pixel(max_x, y);
+    }
+}
+// Midpoint/Bresenham Circle Drawing Algorithm
+void draw_circle(int cx, int cy, int r) {
+    if (r < 0) return;
+    if (r == 0) {
+        draw_pixel(cx, cy);
+        return;
+    }
+    int x = 0;
+    int y = r;
+    int d = 3 - 2 * r;
+    while (y >= x) {
+        // Draw the octants
+        draw_pixel(cx + x, cy + y);
+        draw_pixel(cx - x, cy + y);
+        draw_pixel(cx + x, cy - y);
+        draw_pixel(cx - x, cy - y);
+        draw_pixel(cx + y, cy + x);
+        draw_pixel(cx - y, cy + x);
+        draw_pixel(cx + y, cy - x);
+        draw_pixel(cx - y, cy - x);
+        if (d < 0) {
+            d = d + 4 * x + 6;
+        } else {
+            d = d + 4 * (x - y) + 10;
+            y--;
+        }
+        x++;
+    }
+}
+// Triangle Drawing (connecting vertices with lines)
+void draw_triangle(int x1, int y1, int x2, int y2, int x3, int y3) {
+    draw_line(x1, y1, x2, y2);
+    draw_line(x2, y2, x3, y3);
+    draw_line(x3, y3, x1, y1);
+}
+// Clear the canvas and redraw all active shapes
+void redraw_canvas(void) {
+    init_canvas();
+    for (int i = 0; i < MAX_SHAPES; i++) {
+        if (shapes[i].active) {
+            switch (shapes[i].type) {
+                case SHAPE_LINE:
+                    draw_line(shapes[i].data.line.x1, shapes[i].data.line.y1,
+                              shapes[i].data.line.x2, shapes[i].data.line.y2);
+                    break;
+                case SHAPE_RECTANGLE:
+                    draw_rectangle(shapes[i].data.rect.x1, shapes[i].data.rect.y1,
+                                   shapes[i].data.rect.x2, shapes[i].data.rect.y2);
+                    break;
+                case SHAPE_CIRCLE:
+                    draw_circle(shapes[i].data.circle.cx, shapes[i].data.circle.cy,
+                                shapes[i].data.circle.r);
+                    break;
+                case SHAPE_TRIANGLE:
+                    draw_triangle(shapes[i].data.triangle.x1, shapes[i].data.triangle.y1,
+                                  shapes[i].data.triangle.x2, shapes[i].data.triangle.y2,
+                                  shapes[i].data.triangle.x3, shapes[i].data.triangle.y3);
+                    break;
+            }
+        }
+    }
+}
+// Add a shape to the registry
+int add_shape(Shape shape) {
+    for (int i = 0; i < MAX_SHAPES; i++) {
+        if (!shapes[i].active) {
+            shapes[i] = shape;
+            shapes[i].active = 1;
+            shapes[i].id = next_id++;
+            redraw_canvas();
+            return shapes[i].id;
+        }
+    }
+    return -1; // Registry full
+}
+// Delete a shape from the registry by ID
+int delete_shape(int id) {
+    for (int i = 0; i < MAX_SHAPES; i++) {
+        if (shapes[i].active && shapes[i].id == id) {
+            shapes[i].active = 0;
+            redraw_canvas();
+            return 1; // Success
+        }
+    }
+    return 0; // Not found
+}
+// List all currently active shapes
+void list_shapes(void) {
+    int count = 0;
+    printf("\n=== Active Shapes ===\n");
+    for (int i = 0; i < MAX_SHAPES; i++) {
+        if (shapes[i].active) {
+            count++;
+            printf("ID %d: ", shapes[i].id);
+            switch (shapes[i].type) {
+                case SHAPE_LINE:
+                    printf("Line from (%d, %d) to (%d, %d)\n",
+                           shapes[i].data.line.x1, shapes[i].data.line.y1,
+                           shapes[i].data.line.x2, shapes[i].data.line.y2);
+                    break;
+                case SHAPE_RECTANGLE:
+                    printf("Rectangle corners (%d, %d) and (%d, %d)\n",
+                           shapes[i].data.rect.x1, shapes[i].data.rect.y1,
+                           shapes[i].data.rect.x2, shapes[i].data.rect.y2);
+                    break;
+                case SHAPE_CIRCLE:
+                    printf("Circle center (%d, %d) with radius %d\n",
+                           shapes[i].data.circle.cx, shapes[i].data.circle.cy,
+                           shapes[i].data.circle.r);
+                    break;
+                case SHAPE_TRIANGLE:
+                    printf("Triangle vertices (%d, %d), (%d, %d), (%d, %d)\n",
+                           shapes[i].data.triangle.x1, shapes[i].data.triangle.y1,
+                           shapes[i].data.triangle.x2, shapes[i].data.triangle.y2,
+                           shapes[i].data.triangle.x3, shapes[i].data.triangle.y3);
+                    break;
+            }
+        }
+    }
+    if (count == 0) {
+        printf("(No active shapes on canvas)\n");
+    }
+    printf("=====================\n\n");
+}
+// Safe numeric input fetcher to prevent menu loops and parse correctly
+int get_safe_int(const char *prompt, int min_val, int max_val) {
+    int val;
+    char buffer[100];
+    while (1) {
+        printf("%s", prompt);
+        if (fgets(buffer, sizeof(buffer), stdin) == NULL) {
+            printf("Error reading input. Please try again.\n");
+            continue;
+        }
+        // Clean newline
+        buffer[strcspn(buffer, "\n")] = '\0';
+        // Parse integer
+        char *endptr;
+        long parsed = strtol(buffer, &endptr, 10);
+        if (endptr == buffer || *endptr != '\0') {
+            printf("Invalid integer format. Please enter a valid number.\n");
+            continue;
+        }
+        if (parsed < min_val || parsed > max_val) {
+            printf("Value out of range [%d, %d]. Please try again.\n", min_val, max_val);
+            continue;
+        }
+        val = (int)parsed;
+        break;
+    }
+    return val;
+}
+// Handle details for adding a shape
+void handle_add_shape(void) {
+    printf("\nChoose a shape type to add:\n");
+    printf("1. Line\n");
+    printf("2. Rectangle\n");
+    printf("3. Circle\n");
+    printf("4. Triangle\n");
+    printf("5. Back to Main Menu\n");
+    
+    int choice = get_safe_int("Enter shape type (1-5): ", 1, 5);
+    if (choice == 5) return;
+    Shape new_shape;
+    new_shape.active = 0;
+    new_shape.id = 0;
+    switch (choice) {
+        case 1: // Line
+            new_shape.type = SHAPE_LINE;
+            printf("\n--- Add Line ---\n");
+            new_shape.data.line.x1 = get_safe_int("Enter X1 (0-59): ", 0, WIDTH - 1);
+            new_shape.data.line.y1 = get_safe_int("Enter Y1 (0-19): ", 0, HEIGHT - 1);
+            new_shape.data.line.x2 = get_safe_int("Enter X2 (0-59): ", 0, WIDTH - 1);
+            new_shape.data.line.y2 = get_safe_int("Enter Y2 (0-19): ", 0, HEIGHT - 1);
+            break;
+        case 2: // Rectangle
+            new_shape.type = SHAPE_RECTANGLE;
+            printf("\n--- Add Rectangle ---\n");
+            new_shape.data.rect.x1 = get_safe_int("Enter corner X1 (0-59): ", 0, WIDTH - 1);
+            new_shape.data.rect.y1 = get_safe_int("Enter corner Y1 (0-19): ", 0, HEIGHT - 1);
+            new_shape.data.rect.x2 = get_safe_int("Enter opposite corner X2 (0-59): ", 0, WIDTH - 1);
+            new_shape.data.rect.y2 = get_safe_int("Enter opposite corner Y2 (0-19): ", 0, HEIGHT - 1);
+            break;
+        case 3: // Circle
+            new_shape.type = SHAPE_CIRCLE;
+            printf("\n--- Add Circle ---\n");
+            new_shape.data.circle.cx = get_safe_int("Enter center X (0-59): ", 0, WIDTH - 1);
+            new_shape.data.circle.cy = get_safe_int("Enter center Y (0-19): ", 0, HEIGHT - 1);
+            new_shape.data.circle.r  = get_safe_int("Enter radius (0-60): ", 0, 60);
+            break;
+        case 4: // Triangle
+            new_shape.type = SHAPE_TRIANGLE;
+            printf("\n--- Add Triangle ---\n");
+            new_shape.data.triangle.x1 = get_safe_int("Enter vertex X1 (0-59): ", 0, WIDTH - 1);
+            new_shape.data.triangle.y1 = get_safe_int("Enter vertex Y1 (0-19): ", 0, HEIGHT - 1);
+            new_shape.data.triangle.x2 = get_safe_int("Enter vertex X2 (0-59): ", 0, WIDTH - 1);
+            new_shape.data.triangle.y2 = get_safe_int("Enter vertex Y2 (0-19): ", 0, HEIGHT - 1);
+            new_shape.data.triangle.x3 = get_safe_int("Enter vertex X3 (0-59): ", 0, WIDTH - 1);
+            new_shape.data.triangle.y3 = get_safe_int("Enter vertex Y3 (0-19): ", 0, HEIGHT - 1);
+            break;
+    }
+    int id = add_shape(new_shape);
+    if (id != -1) {
+        printf("Shape added successfully with ID %d!\n", id);
+    } else {
+        printf("Error: Could not add shape. Registry is full!\n");
+    }
+}
+// Handle deleting a shape
+void handle_delete_shape(void) {
+    list_shapes();
+    
+    // Check if there are any active shapes
+    int active_exists = 0;
+    for (int i = 0; i < MAX_SHAPES; i++) {
+        if (shapes[i].active) {
+            active_exists = 1;
+            break;
+        }
+    }
+    
+    if (!active_exists) {
+        return;
+    }
+    int id = get_safe_int("Enter shape ID to delete: ", 1, 100000);
+    if (delete_shape(id)) {
+        printf("Shape with ID %d deleted successfully.\n", id);
+    } else {
+        printf("Shape with ID %d not found.\n", id);
+    }
+}
+// Display the primary options menu
+void show_menu(void) {
+    printf("\n=== 2D Character Graphics Editor ===\n");
+    printf("1. Display Canvas\n");
+    printf("2. Add Shape\n");
+    printf("3. Delete Shape\n");
+    printf("4. List Active Shapes\n");
+    printf("5. Clear Canvas (Delete All)\n");
+    printf("6. Exit\n");
+}
+int main(void) {
+    // Initialize shapes registry
+    for (int i = 0; i < MAX_SHAPES; i++) {
+        shapes[i].active = 0;
+    }
+    
+    init_canvas();
+    // Start with a clean canvas displayed
+    printf("Welcome to the 2D character graphics editor!\n");
+    display_canvas();
+    while (1) {
+        show_menu();
+        int option = get_safe_int("Select option (1-6): ", 1, 6);
+        if (option == 6) {
+            printf("\nExiting editor. Goodbye!\n");
+            break;
+        }
+        switch (option) {
+            case 1:
+                display_canvas();
+                break;
+            case 2:
+                handle_add_shape();
+                display_canvas();
+                break;
+            case 3:
+                handle_delete_shape();
+                display_canvas();
+                break;
+            case 4:
+                list_shapes();
+                break;
+            case 5:
+                // Clear all
+                for (int i = 0; i < MAX_SHAPES; i++) {
+                    shapes[i].active = 0;
+                }
+                redraw_canvas();
+                printf("All shapes deleted. Canvas cleared.\n");
+                display_canvas();
+                break;
+        }
+    }
+    return 0;
+}
